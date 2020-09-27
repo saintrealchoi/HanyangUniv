@@ -175,7 +175,7 @@ NOTES:
  *   Rating: 1
  */
 int bitNor(int x, int y) {
-  return 2;
+  return (~x)&(~y);
 }
 /*
  * bitCount - returns count of number of 1's in word
@@ -185,7 +185,25 @@ int bitNor(int x, int y) {
  *   Rating: 4
  */
 int bitCount(int x) {
-  return 2;
+  int count = 0x00;
+  int mask = 0x01;
+  mask |= mask << 8;
+  mask |= mask << 16;
+  mask |= mask << 24;
+
+  count = (x&mask);
+  count += ((x>>1)&mask);
+  count += ((x>>2)&mask);
+  count += ((x>>3)&mask);
+  count += ((x>>4)&mask);
+  count += ((x>>5)&mask);
+  count += ((x>>6)&mask);
+  count += ((x>>7)&mask);
+
+  count += count >> 16;
+  count += count >> 8;
+  count &= 0xFF;
+  return count;
 }
 /* 
  * bitMask - Generate a mask consisting of all 1's 
