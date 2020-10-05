@@ -227,13 +227,27 @@ int bitMask(int highbit, int lowbit) {
  *  Rating: 2
  */
 int byteSwap(int x, int n, int m) {
-  int t = 0;
-  n = n << 3;
-  m = m << 3;
-  t = 0xFF & ((x>>n) ^ (x>>m));
-  x = x ^ (t << n);
-  x = x ^ (t << m);
-  return x;
+
+    int nbyte = n << 3;
+    int mbyte = m << 3;
+    int nMask = 0xff << nbyte;
+    int mMask = 0xff << mbyte;
+    int nresult = x& nMask;
+    int mresult = x & mMask;
+
+    x = x & (~nMask);
+    x = x & (~mMask);
+    mresult = mresult >> mbyte;
+    nresult = nresult >> nbyte;
+    mresult = mresult & 0xff;
+    nresult = nresult & 0xff;
+    mresult = mresult << nbyte;
+    nresult = nresult << mbyte;
+ 
+    x = x | mresult;
+    x = x | nresult;
+    return x;
+
 }
 /* 
  * isNotEqual - return 0 if x == y, and 1 otherwise 
@@ -253,7 +267,8 @@ int isNotEqual(int x, int y) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return z ^ (((!x) + ~0 ) & (y^z));
+   int mask = ~(!!x)+1;
+   return (z&~mask) | (mask&y);
 }
 /* 
  * TMax - return maximum two's complement integer 
