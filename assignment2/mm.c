@@ -122,8 +122,37 @@ int mm_init(void)
 /* $begin mmmalloc */
 void *mm_malloc(size_t size) 
 {
-	//TODO
-	return NULL;
+	size_t asize; // 새로 할당할 heap영역 사이즈
+	size_t esize; // 확장할 영역의 heap영역
+	char *bp; // buffer pointer
+	int i=0;
+
+	if(size == 0) // 할당할 영역이 없을 때
+		return NULL;
+
+	if(get_heap_listp()==0) // 할당한 heap 영역이 없을 때
+		mm_init();
+
+	if(size<=DSIZE)  // 2워드단위보다 작게을 할당할 때
+	    asize = DSIZE+OVERHEAD;  // 할당할 사이즈와 tag를 저장할 오버헤드사이즈를 할당
+	else // 2워드단위보다 클경우
+	    asize = DSIZE*(size/DSIZE+2); // 2워드단위 (8바이트단위)로 할당
+
+
+
+	bp = find_fit(asize); //사이즈를 정한 후, 빈공간 찾기
+	if(bp!=NULL){ //찾으면 
+	    place(bp,asize); //사이즈만큼 할당
+	    return bp; // payload의 pointer return
+	}
+	else{  // 빈공간이 없다면 영역 확장후 배치 
+	    esize = MAX(asize,CHUNKSIZE);
+	    bp = extend_heap(esize/WSIZE);
+	    if(bp==NULL) return NULL;
+
+	    place(bp,asize);
+	    return bp;
+	}
 } 
 /* $end mmmalloc */
 
@@ -133,7 +162,16 @@ void *mm_malloc(size_t size)
 /* $begin mmfree */
 void mm_free(void *bp)
 {
-	//TODO
+	if(bp==0) return; // malloc이나 realloc이 진행되지 않았다면 아무것도하지않음
+
+	size_t size = GET_SIZE(HDRP(bp));
+	if(get_heap_listp()==0)  // 할당한 영역이없을때 
+	       	mm_init();
+
+	PUT(HDRP(bp),PACK(size,0)); // header 제거
+	PUT(FTRP(bp),PACK(size,0)); // footer 제거
+
+	coalesce(bp); // coalsesce 진행
 }
 
 /* $end mmfree */
@@ -143,8 +181,31 @@ void mm_free(void *bp)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-	//TODO 
-	return NULL;
+	size_t osize;
+	void *nptr;
+
+	if(ptr==NULL) // - if ptr is NULL, the call is equivalent to mm_malloc(size)
+	       	return mm_malloc(size);
+
+	if(size==0){ // - if size is equal to zero, the call is equivalent to mm_free(ptr)
+	    mm_free(ptr);
+	    return 0;
+	}
+	// - if ptr is not NULL
+	nptr = mm_malloc(size); // ptr이 NULL이 아닐 때, 반드시 mm_malloc이나 mm_realloc 실행
+
+	if(!nptr)
+		exit(1);
+
+	osize = GET_SIZE(HDRP(ptr)); // old block size찾기
+	if(size<osize){ //새로할당할 사이즈가 원래 사이즈보다 작다면
+		osize = size; // 사이즈를 줄임
+		memcpy(nptr,ptr,osize);
+	}
+	else
+		memcpy(nptr,ptr,size);
+	mm_free(ptr); //새로운 영역을 가리키는 ptr설정
+	return nptr;
 }
 
 /* 
