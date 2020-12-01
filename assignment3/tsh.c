@@ -165,30 +165,33 @@ int main(int argc, char** argv)
 */
 void eval(char* cmdline)
 {
-    char* argv[MAXARGS];
-    int background;
-    pid_t pid;
+    char* argv[MAXARGS]; // argument list execve()
+    int background; // background or foreground?
+    pid_t pid; // 프로세스 id
     sigset_t mask, prev;
 
-    background = parseline(cmdline, argv);
-    if (argv[0] == NULL) {
+    background = parseline(cmdline, argv); // 커맨드라인에 입력된 문장들을 parsing함, ampersand여부 확인
+    if (argv[0] == NULL) { // 빈문장 무시
         return;
     }
 
     if (builtin_cmd(argv) == 0) {
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGCHLD);
-        sigprocmask(SIG_BLOCK, &mask, &prev);
+        /* 부모프로세스가 fork를 하기전에 sigchld신호를 블락 */
+        
+        sigemptyset(&mask); // 새로운 시그널 마스크 생성
+        sigaddset(&mask, SIGCHLD); // 시그널 마스크에 SIGCHLD 시그널 추가
+        sigprocmask(SIG_BLOCK, &mask, &prev); // blocked set에 SIGCHLD를 추가하고 prev에 이전에 blocked된 set을 저장(빈 blocked set)
 
-        pid = fork();
-        if (pid < 0)
+        pid = fork(); // child 생성
+        if (pid < 0) // 생성실패시
             unix_error("fork");
 
-        if (pid == 0) {
+        if (pid == 0) { // 생성성공시 (builtincommand가 아니라면)
+            /* 자식프로세스는 execve를 호출하기전에 SIGCHLD를 블락해제함 */
             setpgid(0, 0);
-            sigprocmask(SIG_SETMASK, &prev, NULL);
+            sigprocmask(SIG_SETMASK, &prev, NULL); // 블락해제
 
-            if (execve(argv[0], argv, environ) < 0) {
+            if (execve(argv[0], argv, environ) < 0) { 
                 printf("%s: Command not found\n", argv[0]);
                 exit(1);
             }
@@ -196,17 +199,16 @@ void eval(char* cmdline)
                 exit(0);
             }
         }
-
-        if (background) {
+        if (!background) { // &가 없다면 child를 FG에서 실행, 완료될때까지 wait
+            addjob(jobs, pid, FG, cmdline);
+            sigprocmask(SIG_SETMASK, &prev, NULL); // 블락해제
+            waitfg(pid);
+        }
+        else { // &가 붙으면 child를 bg에서 실행하고 다른 stuff 처리
             addjob(jobs, pid, BG, cmdline);
-            sigprocmask(SIG_SETMASK, &prev, NULL);
+            sigprocmask(SIG_SETMASK, &prev, NULL); // 블락해제
             printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
 
-        }
-        else {
-            addjob(jobs, pid, FG, cmdline);
-            sigprocmask(SIG_SETMASK, &prev, NULL);
-            waitfg(pid);
         }
     }
 
@@ -276,18 +278,18 @@ int parseline(const char* cmdline, char** argv)
  */
 int builtin_cmd(char** argv)
 {
-    if (strcmp(argv[0], "quit") == 0) {
+    if (strcmp(argv[0], "quit") == 0) { // quit이라면 종료
         exit(0);
     }
-    else if (strstr(argv[0], "fg") != NULL) {
+    else if (strstr(argv[0], "fg") != NULL) { //해당 프로세스를 foreground로 실행
         do_bgfg(argv);
         return 1;
     }
-    else if (strstr(argv[0], "bg") != NULL) {
+    else if (strstr(argv[0], "bg") != NULL) { //해당 프로세스를 background로 실행
         do_bgfg(argv);
         return 1;
     }
-    else if (strcmp(argv[0], "jobs") == 0) {
+    else if (strcmp(argv[0], "jobs") == 0) { // background작업을 리스팅함
         listjobs(jobs);
         return 1;
     }
@@ -358,9 +360,9 @@ void do_bgfg(char** argv)
 /*
  * waitfg - Block until process pid is no longer the foreground process
  */
-void waitfg(pid_t pid)
+void waitfg(pid_t pid) 
 {
-    while (pid == fgpid(jobs)) {
+    while (pid == fgpid(jobs)) { // 프로세스가 foreground에서 실행중이라면 다른 process를 block
         sleep(1);
     }
 
