@@ -20,49 +20,27 @@ def switchOverTen(x):
     return dictTen.get(x)
 
 def convertDecimal(base,number):
-    """
-    :param base: base number which is converted into radix-'number' number
-    :param number: radix number
-    :return: nothing, just print converted number
-    """
     reminder = base - int(base)
     stack = []
     answer = ""
-    # if Radix number is between 2~9
-    if number in range(2,9):
-        while base > 0:
-            stack.append(int(base % number))
-            base = int(base / number)
-        while stack:
-            answer+=str(stack.pop())
 
-        if reminder != 0:
-            answer+='.'
-            for i in range(6):
-                quo = int(reminder*number)
-                answer+=str(quo)
-                reminder = reminder*number - quo
+    while base > 0:
+        stack.append(switchOverTen(int(base%number)))
+        base = int(base / number)
+    while stack:
+        answer+=stack.pop()
 
-    # if Radix number is 16
-    else:
-        while base > 1:
-            stack.append(switchOverTen(int(base%number)))
-            base = int(base / number)
-        while stack:
-            answer+=stack.pop()
-        if reminder != 0:
-            answer += '.'
-            for i in range(6):
-                quo = int(reminder * number)
-                answer += switchOverTen(quo)
-                reminder = reminder * number - quo
+    if reminder != 0:
+        answer += '.'
+        for i in range(6):
+            quo = int(reminder * number)
+            answer += switchOverTen(quo)
+            reminder = reminder * number - quo
 
-    print(answer)
+    return answer
 
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    convertDecimal(45.75,7)
-
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    input = 65535.2
+    radix = 2
+    output = convertDecimal(input,radix)
+    print(repr(input)+"는 "+repr(radix)+ "진수로 변환시 "+repr(output)+"이 됩니다.")
